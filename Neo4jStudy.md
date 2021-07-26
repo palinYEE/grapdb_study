@@ -79,4 +79,75 @@ df = pd.DataFrame(d_list)
 | 2 | 서울경제 | https://news.naver.com//main/ranking/read.nave... | 조국 딸 '의사국시' 합격 논란에 정경희 "입학부정 주범···검찰, 즉각 기소해야" | 20210201 |
 | 3 | 서울경제 | https://news.naver.com//main/ranking/read.nave... |                 게임스톱과 다른데···'공매도 테마' 이유로 셀트리온 이상 급등 | 20210201 |
 | 4 | 서울경제 | https://news.naver.com//main/ranking/read.nave... |                            공매도 세력 버티기 돌입···게임스톱 전쟁 길어진다 | 20210201 |
-## 
+## 필요없는 문자 제거
+```
+""" 필요 없는 문자 제거 """
+def clean_text(row):
+    text = row['title']
+    pattern = '([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)'
+    text = re.sub(pattern=pattern, repl='', string=text)
+    # print("E-mail제거 : " , text , "\n")
+    pattern = '(http|ftp|https)://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'
+    text = re.sub(pattern=pattern, repl='', string=text)
+    # print("URL 제거 : ", text , "\n")
+    pattern = '([ㄱ-ㅎㅏ-ㅣ]+)'
+    text = re.sub(pattern=pattern, repl='', string=text)
+    # print("한글 자음 모음 제거 : ", text , "\n")
+    pattern = '<[^>]*>'
+    text = re.sub(pattern=pattern, repl='', string=text)
+    # print("태그 제거 : " , text , "\n")
+    pattern = r'\([^)]*\)'
+    text = re.sub(pattern=pattern, repl='', string=text)
+    # print("괄호와 괄호안 글자 제거 :  " , text , "\n")
+    pattern = '[^\w\s]'
+    text = re.sub(pattern=pattern, repl='', string=text)
+    # print("특수기호 제거 : ", text , "\n" )
+    pattern = '[^\w\s]'
+    text = re.sub(pattern=pattern, repl='', string=text)
+    # print("필요없는 정보 제거 : ", text , "\n" )
+    pattern = '["단독"]'
+    text = re.sub(pattern=pattern, repl='', string=text)
+    pattern = '["속보"]'
+    text = re.sub(pattern=pattern, repl='', string=text)
+    # print("단독 속보 제거 : ", text , "\n" )
+    text = text.strip()
+    # print("양 끝 공백 제거 : ", text , "\n" )
+    text = " ".join(text.split())
+    # print("중간에 공백은 1개만 : ", text )
+    return text
+
+df['title_c'] = df.apply(clean_text, axis=1)
+```
+
+|   |    media |                                               src |                                                                       title |     date |                                                             title_c |
+|--:|---------:|--------------------------------------------------:|----------------------------------------------------------------------------:|---------:|--------------------------------------------------------------------:|
+| 0 | 서울경제 | https://news.naver.com//main/ranking/read.nave... |                 [단독] 신고가에 판 아파트 한달뒤 거래취소···가격왜곡 불렀다 | 20210201 |                   신고가에 판 아파트 한달뒤 거래취소가격왜곡 불렀다 |
+| 1 | 서울경제 | https://news.naver.com//main/ranking/read.nave... |                         가족이라도 사는 곳 다르면 5인 이상 모여 세배 못한다 | 20210201 |                 가족이라도 사는 곳 다르면 5인 이상 모여 세배 못한다 |
+| 2 | 서울경제 | https://news.naver.com//main/ranking/read.nave... | 조국 딸 '의사국시' 합격 논란에 정경희 "입학부정 주범···검찰, 즉각 기소해야" | 20210201 | 조국 딸 의사국시 합격 논란에 정경희 입학부정 주범검찰 즉각 기소해야 |
+| 3 | 서울경제 | https://news.naver.com//main/ranking/read.nave... |                 게임스톱과 다른데···'공매도 테마' 이유로 셀트리온 이상 급등 | 20210201 |              게임스톱과 다른데공매도 테마 이유로 셀트리온 이상 급등 |
+| 4 | 서울경제 | https://news.naver.com//main/ranking/read.nave... |                            공매도 세력 버티기 돌입···게임스톱 전쟁 길어진다 | 20210201 |                       공매도 세력 버티기 돌입게임스톱 전쟁 길어진다 |
+
+## 키워드 추출
+```
+""" 키워드 추출 from title """
+from konlpy.tag import Kkma
+from konlpy.tag import Komoran
+
+kkma = Kkma()
+komoran = Komoran()
+df['keyword'] = ''
+for idx_line in range(len(df)):
+    nouns_list = komoran.nouns(df['title_c'].loc[idx_line])
+    nouns_list_c = [nouns for nouns in nouns_list if len(nouns) > 1]    # 한글자는 이상한게 많아서 2글자 이상
+    df.loc[[idx_line], 'keyword'] = set(nouns_list_c)
+df = df[df['media'] != '코리아헤럴드']    # 코리아헤럴드는 영어 제목임
+df = df[df['media'] != '주간경향']    # 주간경향은 같은 title이 많음
+```
+
+|   |    media |                                               src |                                                                       title |     date |                                                              media |
+|--:|---------:|--------------------------------------------------:|----------------------------------------------------------------------------:|---------:|-------------------------------------------------------------------:|
+| 0 | 서울경제 | https://news.naver.com//main/ranking/read.nave... |                 [단독] 신고가에 판 아파트 한달뒤 거래취소···가격왜곡 불렀다 | 20210201 |                             {고가, 가격, 아파트, 취소, 거래, 왜곡} |
+| 1 | 서울경제 | https://news.naver.com//main/ranking/read.nave... |                         가족이라도 사는 곳 다르면 5인 이상 모여 세배 못한다 | 20210201 |                                                 {이상, 세배, 가족} |
+| 2 | 서울경제 | https://news.naver.com//main/ranking/read.nave... | 조국 딸 '의사국시' 합격 논란에 정경희 "입학부정 주범···검찰, 즉각 기소해야" | 20210201 | {합격, 조국, 기소, 주범, 의사, 경희, 검찰, 논란, 입학, 부정, 국시} |
+| 3 | 서울경제 | https://news.naver.com//main/ranking/read.nave... |                 게임스톱과 다른데···'공매도 테마' 이유로 셀트리온 이상 급등 | 20210201 |               {테마, 이상, 게임스톱, 급등, 공매도, 이유, 셀트리온} |
+| 4 | 서울경제 | https://news.naver.com//main/ranking/read.nave... |                            공매도 세력 버티기 돌입···게임스톱 전쟁 길어진다 | 20210201 |                               {전쟁, 세력, 게임스톱, 돌입, 공매도} |
