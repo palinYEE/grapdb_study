@@ -203,7 +203,7 @@ df['title_c_neo4j'] = df.apply(clean_text_for_neo4j, axis=1)
 
 """ 연결 """
 # Neo4j 브라우저에서 설정한 계정의 ID, PASSWORD를 통해 접속
-greeter = GraphDatabase.driver("bolt://3.239.208.176:7687", auth=("neo4j", "enlistment-couples-humans"))  
+greeter = GraphDatabase.driver("bolt://<ip>:<port>", auth=("<id>", "<password>"))  
 
 
 
