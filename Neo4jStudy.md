@@ -17,6 +17,19 @@
 !pip install neo4j
 ```
 
+## Neo4j Sandbox
+
+Neo4j는 웹 브라우저에서 무료로 프로젝트를 만들 수 있는 샌드박스를 제공한다.
+ - 사이트 : https://neo4j.com/
+
+![sandbox](./images/sandbox.png)
+
+sandbox 프로젝트를 생성하면 다음과 같이 나온다. 
+
+![sandbox2](./images/sandbox2.png)
+
+여기에 나와있는 정보들을 이용하여 Neo4j를 사용하면 된다.
+
 # 데이터 셋팅
 
 우리가 사용할 데이터는 2021년 2월 1일 부터 28일까지의 네이버 랭킹 뉴스이다. 우리는 키워드 추출을 하기 위해서 `konlpy` 라이브러리를 사용한다. colab에서 `konlpy`를 별개로 설치해주어야 하는데, 설치 방법은 다음과 같다.
@@ -151,3 +164,5 @@ df = df[df['media'] != '주간경향']    # 주간경향은 같은 title이 많�
 | 2 | 서울경제 | https://news.naver.com//main/ranking/read.nave... | 조국 딸 '의사국시' 합격 논란에 정경희 "입학부정 주범···검찰, 즉각 기소해야" | 20210201 | {합격, 조국, 기소, 주범, 의사, 경희, 검찰, 논란, 입학, 부정, 국시} |
 | 3 | 서울경제 | https://news.naver.com//main/ranking/read.nave... |                 게임스톱과 다른데···'공매도 테마' 이유로 셀트리온 이상 급등 | 20210201 |               {테마, 이상, 게임스톱, 급등, 공매도, 이유, 셀트리온} |
 | 4 | 서울경제 | https://news.naver.com//main/ranking/read.nave... |                            공매도 세력 버티기 돌입···게임스톱 전쟁 길어진다 | 20210201 |                               {전쟁, 세력, 게임스톱, 돌입, 공매도} |
+
+# Python을 이용한 Neo4j 사용하기.
