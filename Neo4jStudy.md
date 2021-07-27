@@ -203,7 +203,7 @@ df['title_c_neo4j'] = df.apply(clean_text_for_neo4j, axis=1)
 
 """ 연결 """
 # Neo4j 브라우저에서 설정한 계정의 ID, PASSWORD를 통해 접속
-greeter = GraphDatabase.driver("bolt://<ip>:<port>", auth=("<id>", "<password>"))  
+greeter = GraphDatabase.driver("bolt://3.239.208.176:7687", auth=("neo4j", "enlistment-couples-humans"))  
 
 
 
@@ -211,10 +211,11 @@ greeter = GraphDatabase.driver("bolt://<ip>:<port>", auth=("<id>", "<password>")
 # Cyper code를 이용,  크롤링한 Data를 DB에 입력
 with greeter.session() as session:
     """ make node """
-    # for idx in range(len(df)):
-    for idx in range(25):
-        session.write_transaction(add_article, title=df.iloc[idx]['title_c_neo4j'], date=df.iloc[idx]['date'],
-                                  media=df.iloc[idx]['media'], keyword=list(df.iloc[idx]['keyword']))
+    for idx in range(len(df)):
+    # for idx in range(25):
+        for k in list(df.iloc[idx]['keyword']):
+          session.write_transaction(add_article, title=df.iloc[idx]['title_c_neo4j'], date=df.iloc[idx]['date'],
+                                  media=df.iloc[idx]['media'], keyword = k)
     session.write_transaction(add_media)
     session.write_transaction(add_keyword)
 ```
