@@ -30,6 +30,27 @@ sandbox 프로젝트를 생성하면 다음과 같이 나온다.
 
 여기에 나와있는 정보들을 이용하여 Neo4j를 사용하면 된다.
 
+# Neo4j Docker 
+
+Neo4j는 docker image를 지원한다. image 설치는 다음과 같다.
+```
+sudo docker pull neo4j
+``` 
+이미지를 설치하고 이를 실행시키려면 다음과 같이 명령어를 입력하면 된다. 
+```
+sudo docker run
+            --name testneo4j        # docker run name
+            -p 7474:7474            # 7474 for HTTP
+            -p 7687:7687            # 7687 for Bolt
+            -d                      # deamon start
+            -v $HOME/neo4j/data:/data   # data path link
+            -v $HOME/neo4j/logs:/logs   # logs path link
+            -v $HOME/neo4j/import:/var/lib/neo4j/import # import path link
+            -v $HOME/neo4j/plugins:/plugins             # plugins path link
+            --env NEO4J_AUTH=<id>/<password>                 # id/password
+            neo4j:latest 
+```
+
 # 데이터 셋팅
 
 우리가 사용할 데이터는 2021년 2월 1일 부터 28일까지의 네이버 랭킹 뉴스이다. 우리는 키워드 추출을 하기 위해서 `konlpy` 라이브러리를 사용한다. colab에서 `konlpy`를 별개로 설치해주어야 하는데, 설치 방법은 다음과 같다.
@@ -218,4 +239,176 @@ with greeter.session() as session:
                                   media=df.iloc[idx]['media'], keyword = k)
     session.write_transaction(add_media)
     session.write_transaction(add_keyword)
+```
+
+# Elasticsearch에서 데이터를 받아 Neo4j에 넣기 
+```
+from elasticsearch import Elasticsearch
+from neo4j import GraphDatabase
+from datetime import datetime
+
+def inputOnionData(greeter, onion, profiling):
+    greeter.run("MERGE (a:Onion {onion: $onion , profiling: $profiling})", onion=onion, profiling= profiling)
+
+def inputGoogleData(greeter, timestamp, abstract, keyword, surfaceLink, title):
+    greeter.run("MERGE (b:Google {timestamp: $timestamp, abstract: $abstract, keyword: $keyword, surfaceLink: $surfaceLink, title: $title})", timestamp=timestamp, abstract=abstract, keyword=keyword, title=title)
+
+def addOnion(greeter):
+    greeter.run("MATCH (a:Onion) "
+        "MERGE (b:Profiling {name:a.profiling}) "
+        "MERGE (a)-[r:Onion]->(b)")
+
+def addSurface(greeter):
+    greeter.run("MATCH (a:Google) "
+        "MERGE (b:Profiling {name:a.keyword}) "
+        "MERGE (a)<-[r:Surface]-(b)")
+
+
+class Elastic():
+    def init(self, ip, port, index):
+        self.ip = ip
+        self.port = port
+        self.indexName = index
+
+        self.es = Elasticsearch(f"{ip}:{port}")
+
+    def searchData(self, query, size):
+        if size > 1000:
+            return self.es.search(index = self.indexName, body = query, size = size, scroll = '1m')
+        else:
+            return self.es.search(index = self.indexName, body = query, size = size)
+
+    def scrollData(self, scrollId):
+        return self.es.scroll(scroll_id = scrollId, scroll='2m')
+
+    def clearScroll(self, scrollIdList):
+        for scrollId in set(scrollIdList):
+            self.es.clear_scroll(scroll_id = scrollId)
+
+
+class NEO4J():
+    def init(self, ip, port, id, password):
+        self.greeter = GraphDatabase.driver(f"neo4j://{ip}:{port}", auth = (id, password))
+
+    def inputOnionDataNeo4j(self, dataList):
+        with self.greeter.session() as session:
+            for data in dataList:
+                    printLog(f"{data['onion']} and {data['profiling']}")
+                    session.write_transaction(inputOnionData,
+                                              onion = data['onion'],
+                                              profiling = data['profiling'])
+
+
+
+
+    def inputGoogleDataNeso4j(self, dataList):
+        with self.greeter.session() as session:
+            for data in dataList:
+                printLog(f"{data['surfaceLink']} and {data['keyword']['value']}")
+                session.write_transaction(inputGoogleData,
+                                          timestamp = data['@timestamp'],
+                                          abstract = data['abstract'],
+                                          keyword = data['keyword']['value'],
+                                          surfaceLink = data['surfaceLink'],
+                                          title = data['title'])
+
+
+def onionDataPrepro(data):
+    resultData = {}
+    profilingList = []
+    resultData['onion'] = data['_source']['requestURL']
+    try:
+        resultData['profiling'] = data['_source']['profiling']
+    except KeyError:
+        resultData['profiling'] = data['_source']['profilling']
+
+    except Exception as e:
+        print(f"[onionDataPrepro][ERROR] - {e}")
+        return {}
+    
+    for key in resultData['profiling'].keys():
+        profilingList.extend(resultData['profiling'][key])
+    
+    resultData['profiling'] = profilingList
+
+    return resultData
+
+def googleDataPrepro(data):
+    return data['_source']
+
+def dataCollection():
+    '''elasticsearch에서 데이터 가져오는 함수'''
+    onionES = Elastic(ip = '<elasticsearch ip>', port = '<elasticsearch port>', index = '<elasticsearch index>')
+    googleES = Elastic(ip = '<elasticsearch ip>', port = '<elasticsearch port>', index = '<elasticsearch index>')
+    
+    onionEsQuery = {
+        "_source" : [
+            "requestURL",
+            "profilling",
+            "profiling"
+        ],
+        "query":{
+            "match_all" : {}
+        }
+    }
+    googleEsQuery = {
+        "query":{
+            "match_all" : {}
+        }
+    }
+
+    onionESdataList = []
+    googleESdataList = []
+
+    onionESclearScrollIdList = []
+    googleESclearScrollIdList = []
+
+    onionData = onionES.searchData(query = onionEsQuery, size = 5000)
+    googleData = googleES.searchData(query = googleEsQuery, size = 5000)
+
+    onionESdataList.extend(map(onionDataPrepro, onionData['hits']['hits']))
+    onionScrollId = onionData.get('_scroll_id')
+
+    googleESdataList.extend(map(googleDataPrepro, googleData['hits']['hits']))
+    googleScrollId = googleData.get('_scroll_id')
+
+    while onionScrollId:
+        onionESclearScrollIdList.append(onionScrollId)
+        onionData = onionES.scrollData(scrollId = onionScrollId)
+        onionESdataList.extend(map(onionDataPrepro, onionData['hits']['hits']))
+        onionScrollId = onionData.get('_scroll_id')
+        if not onionData['hits']['hits']: break
+
+
+    while googleScrollId:
+        googleESclearScrollIdList.append(googleScrollId)
+        googleData = googleES.scrollData(scrollId = googleScrollId)
+        googleESdataList.extend(map(googleDataPrepro, googleData['hits']['hits']))
+        googleScrollId = googleData.get('_scroll_id')
+        if not googleData['hits']['hits']: break
+
+
+    onionES.clearScroll(onionESclearScrollIdList)
+    googleES.clearScroll(googleESclearScrollIdList)
+
+    return onionESdataList, googleESdataList
+
+def printLog(message):
+    print(f"[{str(datetime.now())}] {message}")
+
+if __name__ == 'main':
+    printLog("TEST NEO4J START")
+    testNeo = NEO4J(ip='<neo4j ip>', port='<neo4j port>', id = '<neo4j id>', password = '<neo4j password>')
+
+    onionDataList, googleDataList = dataCollection()
+
+    printLog(f"onionDataList : {len(onionDataList)}")
+    printLog(f"googleDataList : {len(googleDataList)}")
+    
+    printLog("START NEO4J DATA INSERT")
+    testNeo.inputOnionDataNeo4j(onionDataList)
+    printLog("SUCCESS ONION DATA INSERT")
+
+    testNeo.inputGoogleDataNeo4j(googleDataList)
+    printLog("SUCCESS GOOGLE DATA INSERT")
 ```

@@ -2,28 +2,23 @@ from elasticsearch import Elasticsearch
 from neo4j import GraphDatabase
 from datetime import datetime
 
-# onion data mapping
 def inputOnionData(greeter, onion, profiling):
     greeter.run("MERGE (a:Onion {onion: $onion , profiling: $profiling})", onion=onion, profiling= profiling)
 
-# google data mapping
 def inputGoogleData(greeter, timestamp, abstract, keyword, surfaceLink, title):
     greeter.run("MERGE (b:Google {timestamp: $timestamp, abstract: $abstract, keyword: $keyword, surfaceLink: $surfaceLink, title: $title})", timestamp=timestamp, abstract=abstract, keyword=keyword, title=title)
 
-# link between onion site and profiling keyword
 def addOnion(greeter):
     greeter.run("MATCH (a:Onion) "
         "MERGE (b:Profiling {name:a.profiling}) "
         "MERGE (a)-[r:Onion]->(b)")
 
-# link between surface site and profilng keyword
 def addSurface(greeter):
     greeter.run("MATCH (a:Google) "
         "MERGE (b:Profiling {name:a.keyword}) "
         "MERGE (a)<-[r:Surface]-(b)")
 
 
-# Elasticsearch method
 class Elastic():
     def init(self, ip, port, index):
         self.ip = ip
@@ -39,13 +34,13 @@ class Elastic():
             return self.es.search(index = self.indexName, body = query, size = size)
 
     def scrollData(self, scrollId):
-        return self.es.scroll(scroll_id = scrollId, scroll='1m')
+        return self.es.scroll(scroll_id = scrollId, scroll='2m')
 
     def clearScroll(self, scrollIdList):
         for scrollId in set(scrollIdList):
             self.es.clear_scroll(scroll_id = scrollId)
 
-# neo4j method
+
 class NEO4J():
     def init(self, ip, port, id, password):
         self.greeter = GraphDatabase.driver(f"neo4j://{ip}:{port}", auth = (id, password))
@@ -72,7 +67,7 @@ class NEO4J():
                                           surfaceLink = data['surfaceLink'],
                                           title = data['title'])
 
-# onion data preprocessing 
+
 def onionDataPrepro(data):
     resultData = {}
     profilingList = []
@@ -93,14 +88,13 @@ def onionDataPrepro(data):
 
     return resultData
 
-# google data preprocessing
 def googleDataPrepro(data):
     return data['_source']
 
-# collecting data at elasticsearch
 def dataCollection():
-    onionES = Elastic(ip = '<ip>', port = '<port>', index = '<index name>')
-    googleES = Elastic(ip = '<>', port = '<port>', index = '<index name>')
+    '''elasticsearch에서 데이터 가져오는 함수'''
+    onionES = Elastic(ip = '<elasticsearch ip>', port = '<elasticsearch port>', index = '<elasticsearch index>')
+    googleES = Elastic(ip = '<elasticsearch ip>', port = '<elasticsearch port>', index = '<elasticsearch index>')
     
     onionEsQuery = {
         "_source" : [
@@ -138,6 +132,7 @@ def dataCollection():
         onionData = onionES.scrollData(scrollId = onionScrollId)
         onionESdataList.extend(map(onionDataPrepro, onionData['hits']['hits']))
         onionScrollId = onionData.get('_scroll_id')
+        if not onionData['hits']['hits']: break
 
 
     while googleScrollId:
@@ -145,6 +140,7 @@ def dataCollection():
         googleData = googleES.scrollData(scrollId = googleScrollId)
         googleESdataList.extend(map(googleDataPrepro, googleData['hits']['hits']))
         googleScrollId = googleData.get('_scroll_id')
+        if not googleData['hits']['hits']: break
 
 
     onionES.clearScroll(onionESclearScrollIdList)
@@ -155,9 +151,9 @@ def dataCollection():
 def printLog(message):
     print(f"[{str(datetime.now())}] {message}")
 
-if name == 'main':
+if __name__ == 'main':
     printLog("TEST NEO4J START")
-    testNeo = NEO4J(ip='<ip>', port='<port>', id = '<id>', password = '<password>')
+    testNeo = NEO4J(ip='<neo4j ip>', port='<neo4j port>', id = '<neo4j id>', password = '<neo4j password>')
 
     onionDataList, googleDataList = dataCollection()
 
