@@ -39,64 +39,64 @@
 
 ## 관계 형성하기
 
-    - youngjin is a friend of teamin
-        ```
-        > CREATE (yyj)-[:FRIEND_OF{since:1357728400}]->(tm)
-        ```
-    - yyj와 tm은 HAS_READ gdb
-        ```
-        > CREATE (yyj)-[:HAS_READ{rating:4, on:1360396800}]->(gdb)
-        > CREATE (tm)-[:HAS_READ{rating:5, on:1359878400}]->(gdb)
-        ```
-    - Youngjin과 teamin은 친구가 된게 언제부터인가.
-        ```
-        > MATCH (yyj)-[r:FRIEND_OF]-(tm)
-        > RETURN r.since AS friend_since
-        ```
-        ```
-        ╒═══════════════╕
-        │"friends_since"│
-        ╞═══════════════╡
-        │1357728400     │
-        └───────────────┘
-        ```
-    - Graph Databases의 평균 평점은 얼마인가.
-        ```
-        > MATCH (gdb)<-[r:HAS_READ]-()
-        > RETURN avg(r.rating) AS average_rating
-        ```
-        ```
-        ╒════════════════╕
-        │"average_rating"│
-        ╞════════════════╡
-        │4.5             │
-        └────────────────┘
-        ```
-    - youngjin과 teamin 중 나이가 많은 사람을 출력
-        ```
-        > MATCH (people:Person)
-        > WHERE people.name = 'youngjin' OR people.name = 'teamin'
-        > RETURN people.name AS oldest 
-        > ORDER BY people.age DESC
-        > LIMIT 1
-        ```
-        ```
-        ╒════════╕
-        │"oldest"│
-        ╞════════╡
-        │"teamin"│
-        └────────┘
-        ```
-    - youngjin과 teamin중에 누가 먼저 책을 읽었는가.
-        ```
-        > MATCH (people:Person)
-        > WHERE people.name = 'youngjin' OR people.name = 'teamin'
-        > MATCH (people:Person)-[r:HAS_READ]->(gdb:Book {title : "Graph Databases"})
-        > RETURN people.name AS first_reader
-        > ORDER BY r.on 
-        > LIMIT 1
-        ```
-        - 쿼리문 맞는거 같은데 왜 값이 안나올까...
+   - youngjin is a friend of teamin
+       ```
+       > CREATE (yyj)-[:FRIEND_OF{since:1357728400}]->(tm)
+       ```
+   - yyj와 tm은 HAS_READ gdb
+       ```
+       > CREATE (yyj)-[:HAS_READ{rating:4, on:1360396800}]->(gdb)
+       > CREATE (tm)-[:HAS_READ{rating:5, on:1359878400}]->(gdb)
+       ```
+   - Youngjin과 teamin은 친구가 된게 언제부터인가.
+       ```
+       > MATCH (yyj)-[r:FRIEND_OF]-(tm)
+       > RETURN r.since AS friend_since
+       ```
+       ```
+       ╒═══════════════╕
+       │"friends_since"│
+       ╞═══════════════╡
+       │1357728400     │
+       └───────────────┘
+       ```
+   - Graph Databases의 평균 평점은 얼마인가.
+       ```
+       > MATCH (gdb)<-[r:HAS_READ]-()
+       > RETURN avg(r.rating) AS average_rating
+       ```
+       ```
+       ╒════════════════╕
+       │"average_rating"│
+       ╞════════════════╡
+       │4.5             │
+       └────────────────┘
+       ```
+   - youngjin과 teamin 중 나이가 많은 사람을 출력
+       ```
+       > MATCH (people:Person)
+       > WHERE people.name = 'youngjin' OR people.name = 'teamin'
+       > RETURN people.name AS oldest 
+       > ORDER BY people.age DESC
+       > LIMIT 1
+       ```
+       ```
+       ╒════════╕
+       │"oldest"│
+       ╞════════╡
+       │"teamin"│
+       └────────┘
+       ```
+   - youngjin과 teamin중에 누가 먼저 책을 읽었는가.
+       ```
+       > MATCH (people:Person)
+       > WHERE people.name = 'youngjin' OR people.name = 'teamin'
+       > MATCH (people:Person)-[r:HAS_READ]->(gdb:Book {title : "Graph Databases"})
+       > RETURN people.name AS first_reader
+       > ORDER BY r.on 
+       > LIMIT 1
+       ```
+       - 쿼리문 맞는거 같은데 왜 값이 안나올까...
 
 
 ## 쿼리 연습
