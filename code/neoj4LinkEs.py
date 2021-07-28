@@ -1,4 +1,4 @@
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch 
 from neo4j import GraphDatabase
 from datetime import datetime
 
@@ -6,7 +6,7 @@ def inputOnionData(greeter, onion, profiling):
     greeter.run("MERGE (a:Onion {onion: $onion , profiling: $profiling})", onion=onion, profiling= profiling)
 
 def inputGoogleData(greeter, timestamp, abstract, keyword, surfaceLink, title):
-    greeter.run("MERGE (b:Google {timestamp: $timestamp, abstract: $abstract, keyword: $keyword, surfaceLink: $surfaceLink, title: $title})", timestamp=timestamp, abstract=abstract, keyword=keyword, title=title)
+    greeter.run("MERGE (b:Google {timestamp: $timestamp, abstract: $abstract, keyword: $keyword, surfaceLink: $surfaceLink, title: $title})", timestamp=timestamp, abstract=abstract, keyword=keyword, surfaceLink = surfaceLink, title=title)
 
 def addOnion(greeter):
     greeter.run("MATCH (a:Onion) "
@@ -20,7 +20,7 @@ def addSurface(greeter):
 
 
 class Elastic():
-    def init(self, ip, port, index):
+    def __init__(self, ip, port, index):
         self.ip = ip
         self.port = port
         self.indexName = index
@@ -42,30 +42,30 @@ class Elastic():
 
 
 class NEO4J():
-    def init(self, ip, port, id, password):
+    def __init__(self, ip, port, id, password):
         self.greeter = GraphDatabase.driver(f"neo4j://{ip}:{port}", auth = (id, password))
 
     def inputOnionDataNeo4j(self, dataList):
-        with self.greeter.session() as session:
+        with self.greeter.session()  as session:
             for data in dataList:
                     printLog(f"{data['onion']} and {data['profiling']}")
-                    session.write_transaction(inputOnionData,
-                                              onion = data['onion'],
+                    session.write_transaction(inputOnionData, 
+                                              onion = data['onion'], 
                                               profiling = data['profiling'])
 
 
 
 
-    def inputGoogleDataNeso4j(self, dataList):
+    def inputGoogleDataNeo4j(self, dataList):
         with self.greeter.session() as session:
             for data in dataList:
                 printLog(f"{data['surfaceLink']} and {data['keyword']['value']}")
                 session.write_transaction(inputGoogleData,
-                                          timestamp = data['@timestamp'],
-                                          abstract = data['abstract'],
-                                          keyword = data['keyword']['value'],
-                                          surfaceLink = data['surfaceLink'],
-                                          title = data['title'])
+                                          timestamp     = data['@timestamp'],
+                                          abstract      = data['abstract'],
+                                          keyword       = data['keyword']['value'],
+                                          surfaceLink   = data['surfaceLink'],
+                                          title         = data['title'])
 
 
 def onionDataPrepro(data):
@@ -79,11 +79,14 @@ def onionDataPrepro(data):
 
     except Exception as e:
         print(f"[onionDataPrepro][ERROR] - {e}")
-        return {}
+        return 
     
     for key in resultData['profiling'].keys():
         profilingList.extend(resultData['profiling'][key])
     
+    if not profilingList:
+        return 
+
     resultData['profiling'] = profilingList
 
     return resultData
@@ -93,8 +96,8 @@ def googleDataPrepro(data):
 
 def dataCollection():
     '''elasticsearch에서 데이터 가져오는 함수'''
-    onionES = Elastic(ip = '<elasticsearch ip>', port = '<elasticsearch port>', index = '<elasticsearch index>')
-    googleES = Elastic(ip = '<elasticsearch ip>', port = '<elasticsearch port>', index = '<elasticsearch index>')
+    onionES = Elastic(ip = '211.34.4.11', port = '50012', index = 'crawler-*')
+    googleES = Elastic(ip = '211.34.4.11', port = '50012', index = 'googlecrawler-*')
     
     onionEsQuery = {
         "_source" : [
@@ -122,25 +125,27 @@ def dataCollection():
     googleData = googleES.searchData(query = googleEsQuery, size = 5000)
 
     onionESdataList.extend(map(onionDataPrepro, onionData['hits']['hits']))
+    onionESdataList = list(filter(None, onionESdataList))
     onionScrollId = onionData.get('_scroll_id')
 
     googleESdataList.extend(map(googleDataPrepro, googleData['hits']['hits']))
     googleScrollId = googleData.get('_scroll_id')
 
-    while onionScrollId:
-        onionESclearScrollIdList.append(onionScrollId)
-        onionData = onionES.scrollData(scrollId = onionScrollId)
-        onionESdataList.extend(map(onionDataPrepro, onionData['hits']['hits']))
-        onionScrollId = onionData.get('_scroll_id')
-        if not onionData['hits']['hits']: break
+    # while onionScrollId:
+    #     onionESclearScrollIdList.append(onionScrollId)
+    #     onionData = onionES.scrollData(scrollId = onionScrollId)
+    #     onionESdataList.extend(map(onionDataPrepro, onionData['hits']['hits']))
+    #     onionScrollId = onionData.get('_scroll_id')
+    #     if not onionData['hits']['hits']: break
 
 
-    while googleScrollId:
-        googleESclearScrollIdList.append(googleScrollId)
-        googleData = googleES.scrollData(scrollId = googleScrollId)
-        googleESdataList.extend(map(googleDataPrepro, googleData['hits']['hits']))
-        googleScrollId = googleData.get('_scroll_id')
-        if not googleData['hits']['hits']: break
+    # while googleScrollId:
+    #     printLog(f"{googleData['hits']['hits']}")
+    #     googleESclearScrollIdList.append(googleScrollId)
+    #     googleData = googleES.scrollData(scrollId = googleScrollId)
+    #     googleESdataList.extend(map(googleDataPrepro, googleData['hits']['hits']))
+    #     googleScrollId = googleData.get('_scroll_id')
+    #     if not googleData['hits']['hits']: break
 
 
     onionES.clearScroll(onionESclearScrollIdList)
@@ -151,18 +156,17 @@ def dataCollection():
 def printLog(message):
     print(f"[{str(datetime.now())}] {message}")
 
-if __name__ == 'main':
+if __name__ == '__main__':
     printLog("TEST NEO4J START")
-    testNeo = NEO4J(ip='<neo4j ip>', port='<neo4j port>', id = '<neo4j id>', password = '<neo4j password>')
+    testNeo = NEO4J(ip='192.168.73.131', port='7687', id = 'neo4j', password = 'test')
 
     onionDataList, googleDataList = dataCollection()
 
-    printLog(f"onionDataList : {len(onionDataList)}")
+    printLog(f"onionDataList  : {len(onionDataList)}")
     printLog(f"googleDataList : {len(googleDataList)}")
     
     printLog("START NEO4J DATA INSERT")
     testNeo.inputOnionDataNeo4j(onionDataList)
     printLog("SUCCESS ONION DATA INSERT")
-
     testNeo.inputGoogleDataNeo4j(googleDataList)
     printLog("SUCCESS GOOGLE DATA INSERT")
