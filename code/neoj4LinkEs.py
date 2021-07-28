@@ -96,8 +96,8 @@ def googleDataPrepro(data):
 
 def dataCollection():
     '''elasticsearch에서 데이터 가져오는 함수'''
-    onionES = Elastic(ip = '211.34.4.11', port = '50012', index = 'crawler-*')
-    googleES = Elastic(ip = '211.34.4.11', port = '50012', index = 'googlecrawler-*')
+    onionES = Elastic(ip = '', port = '', index = '')
+    googleES = Elastic(ip = '', port = '', index = '')
     
     onionEsQuery = {
         "_source" : [
@@ -158,7 +158,7 @@ def printLog(message):
 
 if __name__ == '__main__':
     printLog("TEST NEO4J START")
-    testNeo = NEO4J(ip='192.168.73.131', port='7687', id = 'neo4j', password = 'test')
+    testNeo = NEO4J(ip='', port='', id = '', password = '')
 
     onionDataList, googleDataList = dataCollection()
 
